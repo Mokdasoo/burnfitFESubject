@@ -54,8 +54,7 @@ const Calendar = () : JSX.Element => {
                 month={dateState.month}
             />
             <DayofTheWeek />
-            <CalendarBody 
-                mode='month'
+            <CalendarBody
                 datesArray={datesArray}
                 dateStateController={dateStateController}
             />
@@ -66,9 +65,9 @@ export default Calendar;
 
 const styles = StyleSheet.create({
     container: {
-       marginTop: 24,
-       marginHorizontal: 16
-
+        flex: 1,
+        marginTop: 24,
+        marginHorizontal: 16,
     }
 })
 

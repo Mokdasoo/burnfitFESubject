@@ -49,6 +49,7 @@ export default WeekComponent;
 
 const styles = StyleSheet.create({
     container: {
+        width: WINDOWWIDTH- 32,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center'
