@@ -14,7 +14,7 @@ const MonthView = ({datesArray, dateStateController, animatedStyle, selectedDate
 
     return (
         <Animated.View style={[styles.Monthcontainer, animatedStyle]}>
-            <Animated.FlatList 
+            {/* <Animated.FlatList 
                 data={datesArray.date}
                 renderItem={({item, index}) => (
                     <WeekComponent 
@@ -26,7 +26,19 @@ const MonthView = ({datesArray, dateStateController, animatedStyle, selectedDate
                     />
                     )}
                     keyExtractor={(item, index) => `Month_year${datesArray.year}month${datesArray.month}week${index}`}
-            />
+            /> */}
+            {
+                datesArray.date.map((week, index) => (
+                    <WeekComponent 
+                        month={datesArray.month} 
+                        weekData={week} 
+                        selectedDate={selectedDate} 
+                        selectDateHandler={selectDateHandler}
+                        dateStateController={dateStateController}
+                        key={`Month_year${datesArray.year}month${datesArray.month}week${index}`}
+                    />
+                ))
+            }
         </Animated.View>
     )
 }
@@ -37,6 +49,7 @@ const styles = StyleSheet.create({
     Monthcontainer: {
         width: '100%',
         height: MONTH_HEIGHT,
-        position: 'absolute'
+        position: 'absolute',
+        overflow: 'hidden'
     },
 });
