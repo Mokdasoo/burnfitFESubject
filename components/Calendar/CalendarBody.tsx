@@ -1,8 +1,8 @@
-import React,{ useState } from 'react';
+import React,{ useState, useEffect } from 'react';
 import {StyleSheet} from 'react-native';
 import {  dateObj, getDateInfo, MonthObj } from '../../util/dateFunctions';
-import Animated, {useSharedValue, useAnimatedStyle,useAnimatedGestureHandler, AnimatedStyleProp, withTiming, Easing} from 'react-native-reanimated';
-import {  gestureHandlerRootHOC, PanGestureHandler, PanGestureHandlerGestureEvent, FlatList  } from 'react-native-gesture-handler';
+import Animated, {useSharedValue, useAnimatedStyle,useAnimatedGestureHandler, withTiming, Easing, } from 'react-native-reanimated';
+import {  gestureHandlerRootHOC, PanGestureHandler, PanGestureHandlerGestureEvent } from 'react-native-gesture-handler';
 import MonthView from './MonthView/MonthView';
 import WeekView from './WeekView/WeekView';
 
@@ -14,99 +14,115 @@ export interface CalendarBodyProps {
     };
 }
 const MONTH_HEIGHT = 300;
-const WEEK_HEIGHT = 60;
+const WEEK_HEIGHT = 50;
 
 
 const CalendarBody =gestureHandlerRootHOC( ({datesArray, dateStateController}: CalendarBodyProps) : JSX.Element => {
     
     const calendarContainerHeight = useSharedValue(MONTH_HEIGHT);
-    const monthOpacity = useSharedValue(1);
-    const weekOpacity = useSharedValue(0);
+    const monthDisplay = useSharedValue(1);
+    const weekDisplay = useSharedValue(0);
 
     type ctxType = {
-        diffY: number;
-        monthViewHeight: number;
         startHeight : number;
+        boundaryPointY: number;
     }
     const gestureHandler = useAnimatedGestureHandler<PanGestureHandlerGestureEvent,ctxType>({
         onStart: (_, ctx) => {
-        //   ctx.diffY = 0;
             ctx.startHeight = calendarContainerHeight.value;
         },
         onActive: (event, ctx) => {
-            console.log(event.translationY);
-            calendarContainerHeight.value = ctx.startHeight + event.translationY;
-            if(event.translationY < 0 && calendarContainerHeight.value <= WEEK_HEIGHT){
+            /** weekview와 monthview 둘 중 하나만 활성화하기 위한 if문 */
+            if(Math.abs(event.translationY) <= WEEK_HEIGHT && calendarContainerHeight.value === WEEK_HEIGHT ){
+                monthDisplay.value = 0;
+                weekDisplay.value = 1;
+            }else{
+                monthDisplay.value = 1;
+                weekDisplay.value = 0;
+
+                /** drag시 높이 위치에 따라 조절 */
+                calendarContainerHeight.value = ctx.startHeight + event.translationY;
+            }
+
+            /** 높이 최대 최소 넘으면 절대 치수로 고정 */
+            if(event.translationY <= 0 && calendarContainerHeight.value <= WEEK_HEIGHT){
                 calendarContainerHeight.value = WEEK_HEIGHT;
-            }else if(event.translationY > 0 && calendarContainerHeight.value >= MONTH_HEIGHT){
+            }else if(event.translationY >= 0 && calendarContainerHeight.value >= MONTH_HEIGHT){
                 calendarContainerHeight.value = MONTH_HEIGHT;
             }
-            // ctx.diffY = event.translationY;
-            // if(ctx.diffY > 0 && monthOpacity.value < 1) monthOpacity.value = 0 + ctx.diffY/500;
-            // else if(ctx.diffY <= -100 && monthOpacity.value > 0) monthOpacity.value = 1 + ctx.diffY/500;
         },
-        onEnd: ({translationY}) => {
-            let boundaryPointY = calendarContainerHeight.value;
+        onEnd: ({translationY}, ctx) => {
+            ctx.boundaryPointY = calendarContainerHeight.value;
             if(translationY > 0){
-                boundaryPointY = MONTH_HEIGHT;
+                ctx.boundaryPointY = MONTH_HEIGHT;
+                monthDisplay.value = 1;
+                weekDisplay.value = 0;
+            }else if( translationY < 0 ) {
+                ctx.boundaryPointY = WEEK_HEIGHT;
+                monthDisplay.value = 0;
+                weekDisplay.value = 1;
             }
-            if( translationY < 0 ) {
-                boundaryPointY = WEEK_HEIGHT;
+            if(translationY !== 0 ){
+                calendarContainerHeight.value = withTiming(ctx.boundaryPointY, {
+                    duration: 500,
+                    easing: Easing.out(Easing.exp),
+                });
             }
-            // if(monthOpacity.value <= 0.5){
-            //     monthOpacity.value = 0;
-            //     weekOpacity.value = 1;
-            // }else{
-            //     monthOpacity.value = 1;
-            //     weekOpacity.value = 0;
-            // }
-            calendarContainerHeight.value = withTiming(boundaryPointY, {
-                duration: 500,
-                easing: Easing.out(Easing.exp),
-            });
         },
       });
-    const monthAnimatedStyle = useAnimatedStyle(() => {
-
+    const gestureStyle = useAnimatedStyle(() => {
         return {
             height : calendarContainerHeight.value,
-            borderBottomColor: '#c0c0c0',
-            borderBottomWidth: 1,
-            borderBottomRadius: 4 
         }
-        
-    });
-    const weekAnimatedStyle = useAnimatedStyle(() => {
-        return {
-            opacity:  weekOpacity.value,
-        };
     });
     
+    const weekAnimatedStyle = useAnimatedStyle(() => {
+          return {
+            opacity: weekDisplay.value
+          };
+    });
     
     const [selectedDate, setSelectedDate] = useState<dateObj>(getDateInfo(new Date()));
+    const [selectedIndex, setSelectedIndex] = useState(0);
     const selectDateHandler = (date: dateObj) => {
-        setSelectedDate(prevState => ({
+        setSelectedDate(_ => ({
             ...date
         }))
     }
+    useEffect(() => {
+        let Index = datesArray.date.findIndex(week => 
+            (week.findIndex(day => 
+                `${day.year}${day.month}${day.date}` === `${selectedDate.year}${selectedDate.month}${selectedDate.date}`
+            ) !== -1) 
+        );
+        if(Index === -1) Index = 0;
+        setSelectedIndex(prev => {
+            return Index;
+        });
+    }, [datesArray, selectedDate, selectedIndex]);
 
     return (
         <PanGestureHandler  onGestureEvent={gestureHandler}>
-            <Animated.View style={styles.container}>
-                <MonthView 
-                    datesArray={datesArray} 
-                    dateStateController={dateStateController} 
-                    selectedDate={selectedDate} 
-                    selectDateHandler={selectDateHandler} 
-                    animatedStyle={monthAnimatedStyle} 
-                />
-                {/* <WeekView 
+            <Animated.View style={[styles.container, gestureStyle]}>
+                <WeekView 
                     datesArray={datesArray} 
                     dateStateController={dateStateController} 
                     selectedDate={selectedDate} 
                     selectDateHandler={selectDateHandler} 
                     animatedStyle={weekAnimatedStyle} 
-                /> */}
+                    selectedIndex={selectedIndex}
+                    calendarContainerHeight={calendarContainerHeight}
+                />
+                <MonthView 
+                    datesArray={datesArray} 
+                    dateStateController={dateStateController} 
+                    selectedDate={selectedDate} 
+                    selectDateHandler={selectDateHandler}
+                    calendarContainerHeight={calendarContainerHeight}
+                    monthDisplay={monthDisplay}
+                    selectedIndex={selectedIndex}
+                />
+                
                
             </Animated.View>
         </PanGestureHandler >
@@ -117,15 +133,9 @@ export default CalendarBody;
 
 const styles = StyleSheet.create({
     container: {
-        flex: 1,
-        
+        borderBottomColor: '#c0c0c0',
+        borderBottomWidth: 1,
+        borderBottomRadius: 4 ,
+        overflow: 'hidden',
     },
-    Monthcontainer: {
-        width: '100%',
-        height: MONTH_HEIGHT,
-    },
-    WeekContainer: {
-        width: '100%',
-        height: WEEK_HEIGHT
-    }
 });
